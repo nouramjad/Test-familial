@@ -1,0 +1,50 @@
+name: Build APK Manually with Gradle CLI
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Extract guardian-monitor2.zip (if compressed)
+        run: |
+          if [ -f "guardian-monitor2.zip" ]; then
+            unzip -o guardian-monitor2.zip -d extracted_project
+          else
+            mkdir -p extracted_project
+            # نسخ الملفات الحالية إلى مجلد العمل المؤقت
+            cp -r app src build.gradle settings.gradle gradle.properties extracted_project/ || true
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Gradle & Build APK
+        run: |
+          cd extracted_project
+          # التحقق من وجود مجلد app وملفات البناء
+          if [ -d "app" ]; then
+            # تثبيت أداة Gradle مباشرة على السيرفر إذا لم تكن موجودة
+            sudo apt-get update && sudo apt-get install -y gradle
+            
+            # بناء ملف الـ APK مباشرة باستخدام الأمر العام
+            gradle assembleDebug
+          else
+            echo "Error: 'app' directory not found!"
+            exit 1
+          fi
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: |
+            **/build/outputs/apk/debug/*.apk
